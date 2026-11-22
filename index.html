@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Yıldız Yağmuru</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+
+    body {
+      background: #070b14;
+      color: #eef2ff;
+      font-family: 'Inter', sans-serif;
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .game-shell {
+      position: relative;
+      width: 100%;
+      max-width: 520px;
+      height: 100dvh;
+      max-height: 860px;
+      background: linear-gradient(180deg, #090e1d 0%, #111a33 65%, #192442 100%);
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+    }
+
+    @media (min-width: 540px) {
+      .game-shell {
+        height: 92dvh;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: none;
+    }
+
+    /* Üst Bilgi Çubuğu */
+    .hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .hud-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill {
+      background: rgba(15, 23, 42, 0.58);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 6px 13px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .lives { letter-spacing: 2px; color: #f87171; font-size: 0.92rem; }
+    .combo-pill {
+      color: #fde68a;
+      border-color: rgba(253, 230, 138, 0.35);
+      opacity: 0;
+      transform: scale(0.9);
+      transition: all 0.2s ease;
+    }
+    .combo-pill.show { opacity: 1; transform: scale(1); }
+
+    .sound-btn {
+      pointer-events: auto;
+      background: rgba(15, 23, 42, 0.58);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #cbd5e1;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .sound-btn:hover { border-color: #93c5fd; color: #fff; }
+
+    /* Başlangıç & Oyun Bitti Ekranı */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 11, 20, 0.72);
+      backdrop-filter: blur(6px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      text-align: center;
+      z-index: 10;
+      transition: opacity 0.25s ease;
+    }
+    .overlay.hidden { opacity: 0; pointer-events: none; }
+
+    .title {
+      font-family: 'Lora', serif;
+      font-size: 2rem;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      margin-bottom: 8px;
+      color: #f8fafc;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      max-width: 310px;
+      line-height: 1.5;
+      margin-bottom: 22px;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      width: 100%;
+      max-width: 320px;
+      margin-bottom: 24px;
+    }
+
+    .legend-item {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 9px 10px;
+      font-size: 0.78rem;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      text-align: left;
+    }
+
+    .score-summary {
+      display: none;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+    .score-summary.show { display: flex; }
+
+    .score-box {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 12px 20px;
+      min-width: 110px;
+    }
+    .score-box span { display: block; font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .score-box strong { font-size: 1.5rem; color: #fde68a; }
+
+    .btn-start {
+      background: linear-gradient(135deg, #e2b857, #c8963e);
+      color: #0b1020;
+      border: none;
+      border-radius: 14px;
+      padding: 13px 34px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(226, 184, 87, 0.28);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn-start:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(226, 184, 87, 0.38); }
+    .btn-start:active { transform: translateY(0); }
+
+    .hint {
+      margin-top: 16px;
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-shell" id="gameShell">
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="hud">
+      <div class="hud-group">
+        <div class="pill">✦ <span id="scoreVal">0</span></div>
+        <div class="pill combo-pill" id="comboPill">x2</div>
+      </div>
+      <div class="hud-group">
+        <div class="pill lives" id="livesVal">♥♥♥</div>
+        <button class="sound-btn" id="soundBtn" title="Sesi Aç/Kapat">🔊</button>
+      </div>
+    </div>
+
+    <div class="overlay" id="overlay">
+      <h1 class="title" id="overlayTitle">Yıldız Yağmuru</h1>
+      <p class="subtitle" id="overlaySubtitle">Gece gökyüzünden düşen yıldızları kaçırmadan yakala, göktaşlarından sakın.</p>
+
+      <div class="score-summary" id="scoreSummary">
+        <div class="score-box">
+          <span>Skor</span>
+          <strong id="finalScore">0</strong>
+        </div>
+        <div class="score-box">
+          <span>En İyi</span>
+          <strong id="bestScore">0</strong>
+        </div>
+      </div>
+
+      <div class="legend" id="legendBox">
+        <div class="legend-item"><span>✦</span> Yıldız (+1)</div>
+        <div class="legend-item"><span>✧</span> Altın (+5 &amp; Yavaş)</div>
+        <div class="legend-item"><span>☾</span> Ay (+1 Can)</div>
+        <div class="legend-item"><span>●</span> Göktaşı (Kaç!)</div>
+      </div>
+
+      <button class="btn-start" id="startBtn">Oyuna Başla</button>
+      <p class="hint">Hareket: Parmağını kaydır · Fare · Yön Tuşları</p>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const shell = document.getElementById("gameShell");
+
+    const scoreVal = document.getElementById("scoreVal");
+    const livesVal = document.getElementById("livesVal");
+    const comboPill = document.getElementById("comboPill");
+    const overlay = document.getElementById("overlay");
+    const overlayTitle = document.getElementById("overlayTitle");
+    const overlaySubtitle = document.getElementById("overlaySubtitle");
+    const scoreSummary = document.getElementById("scoreSummary");
+    const legendBox = document.getElementById("legendBox");
+    const finalScoreEl = document.getElementById("finalScore");
+    const bestScoreEl = document.getElementById("bestScore");
+    const startBtn = document.getElementById("startBtn");
+    const soundBtn = document.getElementById("soundBtn");
+
+    let W = 0, H = 0, dpr = 1;
+    let running = false;
+    let score = 0;
+    let bestScore = parseInt(localStorage.getItem("yildizYagmuruBest") || "0", 10);
+    let lives = 3;
+    let combo = 0;
+    let slowTimer = 0;
+    let shakeTimer = 0;
+    let spawnTimer = 0;
+    let elapsed = 0;
+    let soundOn = localStorage.getItem("yildizYagmuruSes") !== "off";
+
+    const catcher = { x: 0, targetX: 0, y: 0, width: 76, height: 18 };
+    const keys = { left: false, right: false };
+
+    let bgStars = [];
+    let items = [];
+    let particles = [];
+    let popups = [];
+
+    // Ses Motoru (Web Audio API)
+    let audioCtx = null;
+    soundBtn.textContent = soundOn ? "🔊" : "🔇";
+    soundBtn.addEventListener("click", () => {
+      soundOn = !soundOn;
+      soundBtn.textContent = soundOn ? "🔊" : "🔇";
+      localStorage.setItem("yildizYagmuruSes", soundOn ? "on" : "off");
+    });
+
+    function playTone(freq, type = "sine", duration = 0.14, gainVal = 0.08) {
+      if (!soundOn) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function resize() {
+      const rect = shell.getBoundingClientRect();
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = rect.width;
+      H = rect.height;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      catcher.y = H - 64;
+      if (!running) {
+        catcher.x = W / 2;
+        catcher.targetX = W / 2;
+      } else {
+        catcher.x = Math.max(catcher.width / 2, Math.min(W - catcher.width / 2, catcher.x));
+      }
+      initBgStars();
+    }
+
+    function initBgStars() {
+      bgStars = Array.from({ length: 65 }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.4 + 0.4,
+        phase: Math.random() * Math.PI * 2,
+        speed: Math.random() * 1.6 + 0.6
+      }));
+    }
+
+    window.addEventListener("resize", resize);
+    resize();
+
+    // Kontroller (Fare, Dokunmatik ve Klavye)
+    function setPointerX(clientX) {
+      const rect = canvas.getBoundingClientRect();
+      const relX = clientX - rect.left;
+      catcher.targetX = Math.max(catcher.width / 2, Math.min(W - catcher.width / 2, relX));
+    }
+
+    canvas.addEventListener("pointermove", (e) => { if (running) setPointerX(e.clientX); });
+    canvas.addEventListener("pointerdown", (e) => { if (running) setPointerX(e.clientX); });
+    canvas.addEventListener("touchmove", (e) => {
+      if (running && e.touches[0]) { e.preventDefault(); setPointerX(e.touches[0].clientX); }
+    }, { passive: false });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = true;
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") keys.right = true;
+    });
+    window.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = false;
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") keys.right = false;
+    });
+
+    function updateHud() {
+      scoreVal.textContent = score;
+      livesVal.textContent = "♥".repeat(Math.max(0, lives)) + "♡".repeat(Math.max(0, 3 - lives));
+      const mult = combo >= 10 ? 3 : combo >= 5 ? 2 : 1;
+      if (mult > 1) {
+        comboPill.textContent = `x${mult} Seri`;
+        comboPill.classList.add("show");
+      } else {
+        comboPill.classList.remove("show");
+      }
+    }
+
+    function spawnParticles(x, y, color, count = 12) {
+      for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = Math.random() * 140 + 40;
+        particles.push({
+          x, y,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd - 30,
+          r: Math.random() * 2.6 + 1.2,
+          alpha: 1,
+          color
+        });
+      }
+    }
+
+    function addPopup(x, y, text, color) {
+      popups.push({ x, y, text, color, alpha: 1, vy: -45 });
+    }
+
+    function spawnItem() {
+      const difficulty = Math.min(score / 65, 1.8);
+      const baseSpeed = 165 + difficulty * 135;
+      const roll = Math.random();
+
+      let type = "star";
+      if (roll < 0.22 + Math.min(score * 0.002, 0.14)) type = "meteor";
+      else if (roll > 0.95 && lives < 3) type = "heart";
+      else if (roll > 0.87) type = "bonus";
+
+      const radius = type === "meteor" ? 15 : type === "bonus" ? 13 : 11;
+      items.push({
+        type,
+        x: radius + 16 + Math.random() * (W - (radius + 16) * 2),
+        y: -24,
+        r: radius,
+        speed: baseSpeed * (type === "bonus" ? 1.25 : type === "meteor" ? 1.12 : 1) * (0.9 + Math.random() * 0.25),
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 3.5
+      });
+    }
+
+    function startGame() {
+      score = 0;
+      lives = 3;
+      combo = 0;
+      slowTimer = 0;
+      shakeTimer = 0;
+      spawnTimer = 0.4;
+      elapsed = 0;
+      items = [];
+      particles = [];
+      popups = [];
+      catcher.x = W / 2;
+      catcher.targetX = W / 2;
+      running = true;
+      overlay.classList.add("hidden");
+      updateHud();
+      playTone(523.25, "sine", 0.15, 0.07);
+    }
+
+    function endGame() {
+      running = false;
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem("yildizYagmuruBest", String(bestScore));
+      }
+      overlayTitle.textContent = "Gece Sona Erdi";
+      overlaySubtitle.textContent = score >= 30 ? "Harika bir refleks, gökyüzünü topladın!" : "Bir tur daha deneyip rekorunu kırabilirsin.";
+      finalScoreEl.textContent = score;
+      bestScoreEl.textContent = bestScore;
+      scoreSummary.classList.add("show");
+      legendBox.style.display = "none";
+      startBtn.textContent = "Tekrar Oyna";
+      overlay.classList.remove("hidden");
+      playTone(180, "sawtooth", 0.3, 0.06);
+    }
+
+    startBtn.addEventListener("click", startGame);
+
+    function drawStar(x, y, spikes, outerR, innerR, color, glow) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.shadowColor = glow;
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      let rot = (Math.PI / 2) * 3;
+      const step = Math.PI / spikes;
+      ctx.moveTo(0, -outerR);
+      for (let i = 0; i < spikes; i++) {
+        ctx.lineTo(Math.cos(rot) * outerR, Math.sin(rot) * outerR);
+        rot += step;
+        ctx.lineTo(Math.cos(rot) * innerR, Math.sin(rot) * innerR);
+        rot += step;
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawCatcher() {
+      ctx.save();
+      ctx.translate(catcher.x, catcher.y);
+      ctx.shadowColor = slowTimer > 0 ? "#67e8f9" : "#fde68a";
+      ctx.shadowBlur = 18;
+
+      // Hilal / Işıklı Yakalayıcı
+      ctx.strokeStyle = slowTimer > 0 ? "#67e8f9" : "#f6d365";
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(0, -18, 40, Math.PI * 0.2, Math.PI * 0.8);
+      ctx.stroke();
+
+      // İç parlak çizgi
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, -18, 40, Math.PI * 0.28, Math.PI * 0.72);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    let lastTime = performance.now();
+    function loop(now) {
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+      elapsed += dt;
+
+      // Arka plan
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.save();
+      if (shakeTimer > 0) {
+        shakeTimer -= dt;
+        ctx.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8);
+      }
+
+      // Yavaşlatma efekti arka plan parıltısı
+      if (slowTimer > 0) {
+        ctx.fillStyle = "rgba(103, 232, 249, 0.06)";
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // Arka plan yıldızları
+      for (const s of bgStars) {
+        const a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(elapsed * s.speed + s.phase));
+        ctx.fillStyle = `rgba(226, 232, 240, ${a})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (running) {
+        if (slowTimer > 0) slowTimer -= dt;
+        const timeScale = slowTimer > 0 ? 0.55 : 1;
+
+        // Klavye hareketi
+        const keySpeed = 480;
+        if (keys.left) catcher.targetX -= keySpeed * dt;
+        if (keys.right) catcher.targetX += keySpeed * dt;
+        catcher.targetX = Math.max(catcher.width / 2, Math.min(W - catcher.width / 2, catcher.targetX));
+        catcher.x += (catcher.targetX - catcher.x) * Math.min(1, dt * 18);
+
+        // Yeni obje üretimi
+        spawnTimer -= dt * timeScale;
+        if (spawnTimer <= 0) {
+          spawnItem();
+          const minInterval = 0.32;
+          const baseInterval = Math.max(minInterval, 0.92 - score * 0.008);
+          spawnTimer = baseInterval * (0.8 + Math.random() * 0.4);
+        }
+
+        // Objeleri güncelle
+        for (let i = items.length - 1; i >= 0; i--) {
+          const it = items[i];
+          it.y += it.speed * dt * timeScale;
+          it.rot += it.rotSpeed * dt;
+
+          // Yakalama kontrolü
+          const hitY = Math.abs(it.y - (catcher.y + 12)) < 22 + it.r * 0.5;
+          const hitX = Math.abs(it.x - catcher.x) < catcher.width * 0.58 + it.r * 0.5;
+
+          if (hitY && hitX) {
+            if (it.type === "star") {
+              combo++;
+              const mult = combo >= 10 ? 3 : combo >= 5 ? 2 : 1;
+              score += mult;
+              spawnParticles(it.x, it.y, "#fde68a", 12);
+              addPopup(it.x, it.y - 10, `+${mult}`, "#fde68a");
+              playTone(580 + Math.min(combo * 28, 360), "sine", 0.13, 0.07);
+            } else if (it.type === "bonus") {
+              combo++;
+              score += 5;
+              slowTimer = 4.0;
+              spawnParticles(it.x, it.y, "#67e8f9", 18);
+              addPopup(it.x, it.y - 10, "+5 Yavaş!", "#67e8f9");
+              playTone(880, "triangle", 0.22, 0.09);
+            } else if (it.type === "heart") {
+              lives = Math.min(3, lives + 1);
+              spawnParticles(it.x, it.y, "#f472b6", 16);
+              addPopup(it.x, it.y - 10, "+1 Can", "#f9a8d4");
+              playTone(740, "sine", 0.2, 0.08);
+            } else if (it.type === "meteor") {
+              lives--;
+              combo = 0;
+              shakeTimer = 0.25;
+              spawnParticles(it.x, it.y, "#f87171", 18);
+              addPopup(it.x, it.y - 10, "-1 Can", "#f87171");
+              playTone(130, "sawtooth", 0.2, 0.08);
+            }
+            items.splice(i, 1);
+            updateHud();
+            if (lives <= 0) endGame();
+            continue;
+          }
+
+          // Ekrandan çıkma kontrolü
+          if (it.y > H + 30) {
+            if (it.type === "star") {
+              lives--;
+              combo = 0;
+              shakeTimer = 0.16;
+              addPopup(Math.max(40, Math.min(W - 40, it.x)), H - 30, "Kaçtı!", "#fca5a5");
+              playTone(210, "triangle", 0.16, 0.06);
+              updateHud();
+              if (lives <= 0) endGame();
+            }
+            items.splice(i, 1);
+          }
+        }
+      }
+
+      // Objeleri çiz
+      for (const it of items) {
+        if (it.type === "star") {
+          drawStar(it.x, it.y, 4, it.r, it.r * 0.45, "#fef08a", "#facc15");
+        } else if (it.type === "bonus") {
+          drawStar(it.x, it.y, 5, it.r + 1, it.r * 0.48, "#a5f3fc", "#22d3ee");
+        } else if (it.type === "heart") {
+          ctx.save();
+          ctx.translate(it.x, it.y);
+          ctx.shadowColor = "#f472b6";
+          ctx.shadowBlur = 14;
+          ctx.fillStyle = "#fbcfe8";
+          ctx.font = "20px serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("☾", 0, 0);
+          ctx.restore();
+        } else if (it.type === "meteor") {
+          ctx.save();
+          ctx.translate(it.x, it.y);
+          ctx.rotate(it.rot);
+          ctx.shadowColor = "#ef4444";
+          ctx.shadowBlur = 12;
+          ctx.fillStyle = "#334155";
+          ctx.strokeStyle = "#f87171";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-12, -6);
+          ctx.lineTo(-2, -14);
+          ctx.lineTo(11, -8);
+          ctx.lineTo(13, 6);
+          ctx.lineTo(2, 13);
+          ctx.lineTo(-11, 8);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      drawCatcher();
+
+      // Parçacıklar
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.alpha -= dt * 2.2;
+        if (p.alpha <= 0) { particles.splice(i, 1); continue; }
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      // Uçan puan yazıları
+      for (let i = popups.length - 1; i >= 0; i--) {
+        const pop = popups[i];
+        pop.y += pop.vy * dt;
+        pop.alpha -= dt * 1.4;
+        if (pop.alpha <= 0) { popups.splice(i, 1); continue; }
+        ctx.globalAlpha = pop.alpha;
+        ctx.fillStyle = pop.color;
+        ctx.font = "600 14px Inter, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(pop.text, pop.x, pop.y);
+        ctx.globalAlpha = 1;
+      }
+
+      ctx.restore();
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
